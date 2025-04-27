@@ -1,4 +1,5 @@
 #include "move.h"
+#include "../engine/uci/uci.h"
 
 #include "board.h"
 
@@ -87,12 +88,14 @@ bool Move::IsUnderPromotion() const {
 std::string Move::ToString() const {
   if (data_ == 0) return "null";
 
-  const auto from_rank = GetFrom().Rank(), from_file = GetFrom().File();
-  const auto to_rank = GetTo().Rank(), to_file = GetTo().File();
+  std::string res = GetFrom().ToString();
+  if (GetType() == MoveType::kCastle &&
+      !uci::listener.GetOption("UCI_Chess960").GetValue<bool>()) {
+    const bool isKingside = GetFrom() < GetTo();
+    return res + (GetFrom() + (isKingside ? 2 : -2)).ToString();
+  }
 
-  std::string res = std::string(1, 'a' + from_file) +
-                    std::to_string(from_rank + 1) +
-                    std::string(1, 'a' + to_file) + std::to_string(to_rank + 1);
+  res += GetTo().ToString();
 
   if (GetType() == MoveType::kPromotion) {
     switch (GetPromotionType()) {
