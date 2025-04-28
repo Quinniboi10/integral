@@ -24,14 +24,24 @@ Move Move::FromStr(std::string_view str, const BoardState &state) {
     return Move::NullMove();
 
   const auto from = Square::FromRankFile(from_rank, from_file);
-  const auto to = Square::FromRankFile(to_rank, to_file);
+  auto to = Square::FromRankFile(to_rank, to_file);
 
   auto flag = MoveType::kNormal;
 
   if (str.length() < kMaxMoveLen) {
     const auto piece = state.GetPieceType(from);
-    if (piece == PieceType::kKing && std::abs(from_file - to_file) == 2) {
-      flag = MoveType::kCastle;
+    if (piece == PieceType::kKing) {
+      if (!uci::listener.GetOption("UCI_Chess960").GetValue<bool>() &&
+          ((from == kE1 && to == kG1 && state.castle_rights.CanKingsideCastle(kWhite)) ||
+           (from == kE1 && to == kC1 && state.castle_rights.CanQueensideCastle(kWhite)) ||
+           (from == kE8 && to == kG8 && state.castle_rights.CanKingsideCastle(kBlack)) ||
+           (from == kE8 && to == kC8 && state.castle_rights.CanQueensideCastle(kBlack)))) {
+        const CastleSide side = to > from ? kKingside : kQueenside;
+        to = state.castle_rights.CastleSq(state.turn, side);
+        flag = MoveType::kCastle;
+      } else if (uci::listener.GetOption("UCI_Chess960").GetValue<bool>() &&
+                 (state.Rooks(state.turn) & (1ULL << to)).AsU64() > 0)
+        flag = MoveType::kCastle;
     } else if (piece == PieceType::kPawn) {
       if (state.en_passant && to == state.en_passant) {
         flag = MoveType::kEnPassant;
@@ -67,7 +77,7 @@ Move Move::FromStr(std::string_view str, const BoardState &state) {
 }
 
 bool Move::IsCapture(const BoardState &state) const {
-  return state.GetPieceType(GetTo()) != PieceType::kNone || IsEnPassant(state);
+  return (state.GetPieceType(GetTo()) != PieceType::kNone && GetType() != MoveType::kCastle) || IsEnPassant(state);
 }
 
 bool Move::IsNoisy(const BoardState &state) const {

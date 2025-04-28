@@ -213,19 +213,23 @@ BitBoard CastlingMoves(Color side, const BoardState &state) {
 
   if (side == Color::kWhite) {
     if (state.castle_rights.CanKingsideCastle(Color::kWhite)) {
-      if (!(occupied & kWhiteKingsideOccupancy)) moves.SetBit(Squares::kG1);
+      if (!(occupied & kWhiteKingsideOccupancy))
+        moves.SetBit(state.castle_rights.CastleSq(Color::kWhite, CastleSide::kKingside));
     }
 
     if (state.castle_rights.CanQueensideCastle(Color::kWhite)) {
-      if (!(occupied & kWhiteQueensideOccupancy)) moves.SetBit(Squares::kC1);
+      if (!(occupied & kWhiteQueensideOccupancy))
+        moves.SetBit(state.castle_rights.CastleSq(Color::kWhite, CastleSide::kQueenside));
     }
   } else {
     if (state.castle_rights.CanKingsideCastle(Color::kBlack)) {
-      if (!(occupied & kBlackKingsideOccupancy)) moves.SetBit(Squares::kG8);
+      if (!(occupied & kBlackKingsideOccupancy))
+        moves.SetBit(state.castle_rights.CastleSq(Color::kBlack, CastleSide::kKingside));
     }
 
     if (state.castle_rights.CanQueensideCastle(Color::kBlack)) {
-      if (!(occupied & kBlackQueensideOccupancy)) moves.SetBit(Squares::kC8);
+      if (!(occupied & kBlackQueensideOccupancy))
+        moves.SetBit(state.castle_rights.CastleSq(Color::kBlack, CastleSide::kQueenside));
     }
   }
 
@@ -462,10 +466,8 @@ MoveList GenerateMoves(const Board &board) {
   if (state.checkers.MoreThanOne()) {
     // Only king moves are legal if there's multiple pieces checking the king
     const Square king_square = state.King(state.turn).GetLsb();
-    for (Square to : KingMoves(king_square, state) & targets) {
-      const bool is_castle = std::abs(to.File() - king_square.File()) == 2;
-      move_list.Push(Move(
-          king_square, to, is_castle ? MoveType::kCastle : MoveType::kNormal));
+    for (Square to : KingAttacks(king_square) & targets) {
+      move_list.Push(Move(king_square, to, MoveType::kNormal));
     }
     return move_list;
   }
@@ -498,10 +500,13 @@ MoveList GenerateMoves(const Board &board) {
   }
 
   const Square king_square = state.King(state.turn).GetLsb();
-  for (Square to : KingMoves(king_square, state) & targets) {
-    const bool is_castle = std::abs(to.File() - king_square.File()) == 2;
-    move_list.Push(Move(
-        king_square, to, is_castle ? MoveType::kCastle : MoveType::kNormal));
+  for (Square to : KingAttacks(king_square) & targets) {
+    move_list.Push(Move(king_square, to, MoveType::kNormal));
+  }
+  if (!state.checkers && move_type & MoveGenType::kQuiet) {
+    for (Square to : CastlingMoves(state.turn, state)) {
+      move_list.Push(Move(king_square, to, MoveType::kCastle));
+    }
   }
 
   return move_list;

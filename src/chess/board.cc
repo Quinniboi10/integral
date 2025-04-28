@@ -8,6 +8,11 @@
 
 #include <bit>
 
+constexpr std::array<Square, 4> kRookEndSquares = {
+    Square(kD8), Square(kF8), Square(kD1), Square(kF1)};
+constexpr std::array<Square, 4> kKingEndSquares = {
+    Square(kC8), Square(kG8), Square(kC1), Square(kG1)};
+
 Board::Board() : history_({}) {}
 
 Board::Board(const BoardState &state) : history_({}), state_(state) {}
@@ -127,22 +132,19 @@ bool Board::IsMoveLegal(Move move) const {
 
   const auto piece_type = state_.GetPieceType(from);
   if (piece_type == PieceType::kKing) {
-    constexpr int kKingsideCastleDist = -2;
-    constexpr int kQueensideCastleDist = 2;
-
-    // Note: the only way move_dist is ever 2 or -2 is from
-    // move_gen::CastlingMoves allowing it
-    const int move_dist = static_cast<int>(from) - static_cast<int>(to);
-    if (move_dist == kKingsideCastleDist) {
-      return !move_gen::GetAttackersTo(
-                 state_, is_white ? Squares::kG1 : Squares::kG8, them) &&
-             !move_gen::GetAttackersTo(
-                 state_, is_white ? Squares::kF1 : Squares::kF8, them);
-    } else if (move_dist == kQueensideCastleDist) {
-      return !move_gen::GetAttackersTo(
-                 state_, is_white ? Squares::kC1 : Squares::kC8, them) &&
-             !move_gen::GetAttackersTo(
-                 state_, is_white ? Squares::kD1 : Squares::kD8, them);
+    if (move.GetType() == MoveType::kCastle) {
+      const bool isKingside = to > from;
+      if (isKingside) {
+        return !move_gen::GetAttackersTo(
+                   state_, is_white ? Squares::kG1 : Squares::kG8, them) &&
+               !move_gen::GetAttackersTo(
+                   state_, is_white ? Squares::kF1 : Squares::kF8, them);
+      } else {
+        return !move_gen::GetAttackersTo(
+                   state_, is_white ? Squares::kC1 : Squares::kC8, them) &&
+               !move_gen::GetAttackersTo(
+                   state_, is_white ? Squares::kD1 : Squares::kD8, them);
+      }
     }
 
     // Make sure the destination square isn't attacked
@@ -241,8 +243,8 @@ void Board::MakeMove(Move move) {
   if (move_type == MoveType::kCastle) {
     HandleCastling(move);
     accum_change.type = nnue::AccumulatorChange::kCastle;
-    const Square rook_from = to > from ? Square(to + 1) : Square(to - 2);
-    const Square rook_to = to > from ? Square(to - 1) : Square(to + 1);
+    const Square rook_from = to;
+    const Square rook_to = kRookEndSquares[CastleRights::CastleIndex(us, from > to ? CastleSide::kQueenside : CastleSide::kKingside)];
     accum_change.add_1 = {rook_to, PieceType::kRook, us};
     accum_change.sub_1 = {rook_from, PieceType::kRook, us};
   } else if (move_type == MoveType::kPromotion) {
@@ -250,22 +252,28 @@ void Board::MakeMove(Move move) {
     accum_change.add_0.piece = new_piece;
   }
 
-  state_.PlacePiece(to, new_piece, state_.turn);
+  if (move_type != MoveType::kCastle)
+    state_.PlacePiece(to, new_piece, state_.turn);
 
   // Update the castling rights depending on the piece that moved
   state_.zobrist_key ^= zobrist::castle_rights[state_.castle_rights.AsU8()];
 
+  // Update castling rights
   if (piece == kRook) {
-    const bool queenside = from < state_.King(us).GetLsb();
-    const Square sq = state_.castle_rights.CastleSq(us, queenside);
-    if (from == sq) state_.castle_rights.SetCastlingRights(us, from, queenside, false);
+    const CastleSide side = from > state_.King(us).GetLsb()
+                              ? CastleSide::kKingside
+                              : CastleSide::kQueenside;
+    const Square sq = state_.castle_rights.CastleSq(us, side);
+    if (from == sq) state_.castle_rights.SetCastlingRights(us, from, side, false);
   } else if (piece == kKing)
     state_.castle_rights.UnsetCastlingRights(us);
   if (captured == kRook) {
-    const bool queenside = to < state_.King(them).GetLsb();
-    const Square sq = state_.castle_rights.CastleSq(them, queenside);
+    const CastleSide side = to > state_.King(them).GetLsb()
+                              ? CastleSide::kKingside
+                              : CastleSide::kQueenside;
+    const Square sq = state_.castle_rights.CastleSq(them, side);
     if (to == sq)
-      state_.castle_rights.SetCastlingRights(them, to, queenside, false);
+      state_.castle_rights.SetCastlingRights(them, to, side, false);
   }
 
   state_.zobrist_key ^= zobrist::castle_rights[state_.castle_rights.AsU8()];
@@ -469,26 +477,17 @@ void Board::HandleCastling(Move move) {
   const Color us = state_.turn;
   const bool is_white = us == Color::kWhite;
 
-  const auto from = move.GetFrom(), to = move.GetTo();
-  const auto move_rook_for_castling = [this, &us](Square rook_from,
-                                                  Square rook_to) {
-    state_.RemovePiece(rook_from, state_.turn);
-    state_.PlacePiece(rook_to, PieceType::kRook, state_.turn);
-  };
+  const Square king_sq = move.GetFrom();
+  const Square rook_sq = move.GetTo();
 
-  constexpr int kKingsideCastleDist = -2;
-  constexpr int kQueensideCastleDist = 2;
+  const Square king_to = kKingEndSquares[CastleRights::CastleIndex(
+      us, king_sq > rook_sq ? CastleSide::kQueenside : CastleSide::kKingside)];
+  const Square rook_to = kRookEndSquares[CastleRights::CastleIndex(
+      us, king_sq > rook_sq ? CastleSide::kQueenside : CastleSide::kKingside)];
 
-  // Note: the only way move_dist is ever 2 or -2 is from
-  // move_gen::CastlingMoves allowing it
-  const int move_dist = static_cast<int>(from) - static_cast<int>(to);
-  if (move_dist == kKingsideCastleDist) {
-    move_rook_for_castling(is_white ? Squares::kH1 : Squares::kH8,
-                           is_white ? Squares::kF1 : Squares::kF8);
-  } else if (move_dist == kQueensideCastleDist) {
-    move_rook_for_castling(is_white ? Squares::kA1 : Squares::kA8,
-                           is_white ? Squares::kD1 : Squares::kD8);
-  }
+  state_.PlacePiece(king_to, PieceType::kKing, us);
+  state_.RemovePiece(rook_sq, us);
+  state_.PlacePiece(rook_to, PieceType::kRook, us);
 }
 
 void Board::CalculateThreats() {
