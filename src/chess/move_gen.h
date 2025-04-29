@@ -49,6 +49,9 @@ BitBoard GetSlidingAttackersTo(const BoardState &state,
 // squares
 BitBoard RayBetween(Square first, Square second);
 
+// Returns a bitboard with all the bits between the two squares (inclusive)
+BitBoard RayIncluding(Square first, Square second);
+
 // Returns a bitboard with the set bits being the ray that the two squares lie
 // on
 BitBoard RayIntersecting(Square first, Square second);

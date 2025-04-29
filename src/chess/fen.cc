@@ -75,7 +75,7 @@ BoardState StringToBoard(std::string_view fen_str) {
       const File file = static_cast<File>(std::tolower(ch) - 'a');
       const Square kingSq = state.King(std::islower(ch) ? Color::kBlack : Color::kWhite).GetLsb();
 
-      const CastleSide side = file < kingSq.File()
+      const CastleSide side = file > kingSq.File()
                                 ? CastleSide::kKingside
                                 : CastleSide::kQueenside;
 
