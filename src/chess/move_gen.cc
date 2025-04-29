@@ -233,6 +233,8 @@ BitBoard CastlingMoves(Color side, const BoardState &state) {
     }
   }
 
+  assert((moves & ~state.Rooks(state.turn)) == 0);
+
   return moves;
 }
 

@@ -199,7 +199,7 @@ void Board::MakeMove(Move move) {
 
   const auto from = move.GetFrom(), to = move.GetTo();
   const auto piece = state_.GetPieceType(from),
-             captured = state_.GetPieceType(to);
+             captured = move.GetType() == MoveType::kCastle ? PieceType::kNone : state_.GetPieceType(to);
   const auto move_type = move.GetType();
 
   // Initialize accumulator change
@@ -484,6 +484,9 @@ void Board::HandleCastling(Move move) {
       us, king_sq > rook_sq ? CastleSide::kQueenside : CastleSide::kKingside)];
   const Square rook_to = kRookEndSquares[CastleRights::CastleIndex(
       us, king_sq > rook_sq ? CastleSide::kQueenside : CastleSide::kKingside)];
+
+  assert(state_.piece_on_square[rook_sq] == PieceType::kRook);
+  assert(state_.piece_on_square[rook_to] == PieceType::kNone);
 
   state_.PlacePiece(king_to, PieceType::kKing, us);
   state_.RemovePiece(rook_sq, us);
