@@ -43,6 +43,8 @@ void Board::SetFromFen(std::string_view fen_str) {
 }
 
 bool Board::IsMovePseudoLegal(Move move) const {
+  if (move.IsNull()) return false;
+
   const auto from = move.GetFrom(), to = move.GetTo();
   const Color us = state_.turn;
 
@@ -65,8 +67,8 @@ bool Board::IsMovePseudoLegal(Move move) const {
 
     if (state_.GetPieceType(to) != PieceType::kRook) return false;
 
-    if (to > from && !state_.castle_rights.CanKingsideCastle(state_.turn)) return false;
-    return state_.castle_rights.CanQueensideCastle(state_.turn);
+    if (to > from && state_.castle_rights.CastleSq(state_.turn, kKingside) != to) return false;
+    return state_.castle_rights.CastleSq(state_.turn, kQueenside) == to;
   }
 
   if (move_type == MoveType::kEnPassant) {
