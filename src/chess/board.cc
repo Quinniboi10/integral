@@ -6,18 +6,7 @@
 #include "move.h"
 #include "move_gen.h"
 
-// clang-format off
-constexpr std::array<U8, 64> kCastlingRights = {
-  7, 15, 15, 15,  3, 15, 15, 11,
-  15, 15, 15, 15, 15, 15, 15, 15,
-  15, 15, 15, 15, 15, 15, 15, 15,
-  15, 15, 15, 15, 15, 15, 15, 15,
-  15, 15, 15, 15, 15, 15, 15, 15,
-  15, 15, 15, 15, 15, 15, 15, 15,
-  15, 15, 15, 15, 15, 15, 15, 15,
-  13, 15, 15, 15, 12, 15, 15, 14
-};
-// clang-format on
+#include <bit>
 
 Board::Board() : history_({}) {}
 
@@ -208,7 +197,7 @@ void Board::MakeMove(Move move) {
 
   const auto from = move.GetFrom(), to = move.GetTo();
   const auto piece = state_.GetPieceType(from),
-             captured = state_.GetPieceType(to);
+             captured = move.GetType() == MoveType::kCastle ? PieceType::kNone : state_.GetPieceType(to);
   const auto move_type = move.GetType();
 
   // Initialize accumulator change
@@ -265,7 +254,26 @@ void Board::MakeMove(Move move) {
 
   // Update the castling rights depending on the piece that moved
   state_.zobrist_key ^= zobrist::castle_rights[state_.castle_rights.AsU8()];
-  state_.castle_rights &= kCastlingRights[from] & kCastlingRights[to];
+
+  if (piece == kRook) {
+    const CastleRights::CastleSide side = from > state_.King(us).GetLsb() ? CastleRights::kKingside : CastleRights::kQueenside;
+
+    const Square sq = state_.castle_rights.CastleSq(us, side);
+
+    if (from == sq)
+      state_.castle_rights.SetCastlingRights(us, side, kNoSquare);
+
+  } else if (piece == kKing)
+    state_.castle_rights.UnsetCastlingRights(us);
+  if (state_.GetPieceType(to)) {
+    const CastleRights::CastleSide side = to > state_.King(them).GetLsb() ? CastleRights::kKingside : CastleRights::kQueenside;
+
+    const Square sq = state_.castle_rights.CastleSq(them, side);
+
+    if (to == sq)
+      state_.castle_rights.SetCastlingRights(them, side, kNoSquare);
+  }
+
   state_.zobrist_key ^= zobrist::castle_rights[state_.castle_rights.AsU8()];
 
   state_.turn = FlipColor(state_.turn);
