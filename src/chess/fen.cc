@@ -1,5 +1,7 @@
 #include "fen.h"
 
+#include "../engine/uci/uci.h"
+
 namespace fen {
 
 // clang-format off
@@ -54,6 +56,7 @@ BoardState StringToBoard(std::string_view fen_str) {
 
   std::string castle_rights;
   stream >> castle_rights;
+  state.castle_rights.GetUnderlying().fill(kNoSquare);
   for (const char &ch : castle_rights) {
     // Standard FENs, XFEN later
     if (ch == 'K')
@@ -68,6 +71,7 @@ BoardState StringToBoard(std::string_view fen_str) {
     // FRC FEN
     if (std::tolower(ch) >= 'a' &&
         std::tolower(ch) <= 'h') {
+      uci::listener.GetOption("UCI_Chess960").SetValue("true");
       const File file = static_cast<File>(std::tolower(ch) - 'a');
       const Square kingSq = state.King(std::islower(ch) ? Color::kBlack : Color::kWhite).GetLsb();
 
