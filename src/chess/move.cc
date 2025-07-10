@@ -65,7 +65,8 @@ Move Move::FromStr(std::string_view str, const BoardState &state) {
 }
 
 bool Move::IsCapture(const BoardState &state) const {
-  return state.GetPieceType(GetTo()) != PieceType::kNone || IsEnPassant(state);
+  return state.GetPieceType(GetTo()) != PieceType::kNone && GetType() != MoveType::kCastle ||
+         IsEnPassant(state);
 }
 
 bool Move::IsNoisy(const BoardState &state) const {

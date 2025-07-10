@@ -254,7 +254,7 @@ void Board::MakeMove(Move move) {
   if (move_type == MoveType::kCastle) {
     HandleCastling(move);
     accum_change.type = nnue::AccumulatorChange::kCastle;
-    const Square rook_from = to > from ? Square(to + 1) : Square(to - 2);
+    const Square rook_from = to;
     const Square rook_to = kRookEndSquares[CastleRights::CastleIndex(us, from > to ? CastleRights::kQueenside : CastleRights::kKingside)];
     accum_change.add_1 = {rook_to, PieceType::kRook, us};
     accum_change.sub_1 = {rook_from, PieceType::kRook, us};

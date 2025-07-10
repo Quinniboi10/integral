@@ -341,7 +341,7 @@ class Board {
 
   [[nodiscard]] U64 PredictKeyAfter(Move move) const;
 
-  [[nodiscard]] bool HasUpcomingRepetition(U16 ply) const ;
+  [[nodiscard]] bool HasUpcomingRepetition(U16 ply) const;
 
   [[nodiscard]] bool IsRepetition(U16 ply) const;
 
