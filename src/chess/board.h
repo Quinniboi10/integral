@@ -75,7 +75,7 @@ class CastleRights {
     SetCanQueensideCastle(turn, kNoSquare);
   }
 
-  [[nodiscard]] std::array<Square, 4> GetUnderlying() const {
+  [[nodiscard]] std::array<Square, 4>& GetUnderlying() {
     return rights_;
   }
 
